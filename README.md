@@ -6,6 +6,8 @@
 
 Welcome to the Digital Intermediate Frequency Interoperability (DIFI) Certification GitHub Repo! This repository is used by the [DIFI Consortium Working Group](https://dificonsortium.org/) to share resources and tooling with DIFI Consortium members and the user community to enable verification, validation and testing of DIFI streams and devices in accordance with the [DIFI standards](https://dificonsortium.org/standards/).
 
+For the old/legacy DIFI_Validator functionality (e.g., dcs.py, dds.py, drx.py, webgui.py), see https://github.com/DIFI-Consortium/Legacy-DIFI-Validator.
+
 ## DIFI Certification Working Group Projects
 
 ### DIFI Self-Certification Tooling
@@ -20,13 +22,13 @@ sudo apt install -y python3 python3-pip python3-venv python-is-python3
 python -m venv difi-venv
 . difi-venv/bin/activate
 pip install -r requirements.txt
-python certify_source.py --pcap DIFI_Validator/examples/Example1_1Msps_8bits.pcapng
+python certify_source.py --pcap example_pcaps/Example1_1Msps_8bits.pcapng
 ```
 
 #### Certify Source (Parse DIFI)
 
 A PCAP or live UDP stream can be parsed with:
-- PCAP: `python certify_source.py --pcap DIFI_Validator/examples/Example1_1Msps_8bits.pcapng`
+- PCAP: `python certify_source.py --pcap example_pcaps/Example1_1Msps_8bits.pcapng`
 - UDP: `python certify_source.py --udp-port 50003` (e.g. using `python certify_sink.py --port 50003` to send it packets)
 
 Use `python certify_source.py --help` to see all available arguments
