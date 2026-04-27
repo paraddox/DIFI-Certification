@@ -57,7 +57,7 @@ The [GNU Radio](https://www.gnuradio.org/ "GNU Radio") out of tree blocks consis
 
 ### DIFI Wireshark Dissector
 
-The DIFI Wireshark Dissector is a LUA plugin created for [Wireshark](https://www.wireshark.org/ "Wireshark") that allows for packet inspection of DIFI Standard Context, Standard Data and Version Context packets. The plug-in was created by [Johanna Rivera](https://github.com/jo-rivera). The dissector supports DIFI 1.2 (2024).
+The DIFI Wireshark Dissector is a LUA plugin created for [Wireshark](https://www.wireshark.org/ "Wireshark") that allows for packet inspection of DIFI Standard Context, Standard Data, Version Context, Command, and Extension Command packets. The plug-in was created by [Johanna Rivera](https://github.com/jo-rivera). The dissector supports DIFI 1.3 (2025), including Version Flow Signal Context packet class `0x0004` and Extension Command packet classes `0x0007`, `0x0008`, and `0x0009`.
 
 ### DIFI Tutorial ([DIFI 101](https://github.com/DIFI-Consortium/DIFI-Certification/blob/main/DIFI_101_Tutorial.md "DIFI 101"))
 

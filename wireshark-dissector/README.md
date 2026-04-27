@@ -1,6 +1,13 @@
 # DIFI Dissector
 
-This project contains a [DIFI](https://dificonsortium.org/) dissector plugin for Wireshark. It supports decoding of Context, Data and Version packets as defined in v1.0.0 of the DIFI spec.
+This project contains a [DIFI](https://dificonsortium.org/) dissector plugin for Wireshark. It supports decoding of Context, Data, Version, Command, and DIFI 1.3 Extension Command packets.
+
+Supported DIFI 1.3 packet classes include:
+
+* `0x0004` Version Flow Signal Context packets carried as Packet Type `0x4`
+* `0x0007` Sink Capability Query Control packets
+* `0x0008` Sink Capability Response Acknowledge packets
+* `0x0009` Status Report Control packets
 
 # Pre-requisites
 * Install [Wireshark](https://www.wireshark.org/)
@@ -20,6 +27,14 @@ Copy [difi-dissector.lua](difi-dissector.lua) into the Wireshark plugins directo
 * Run Wireshark
 * Verify the plugin is loaded under Help->About Wireshark->Plugins
 * Open a PCAP file with DIFI packets or use one of the example test files [difi-gnuradio-example](tests/difi-gnuradio-example.pcapng)
+
+# Test
+
+If `tshark` is installed, run the DIFI 1.3 smoke test:
+
+```bash
+python3 wireshark-dissector/tests/test_difi13_dissector.py
+```
 
 <p align="center">
   <img src="./images/difi-gnuradio-example.png">

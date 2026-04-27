@@ -3,6 +3,7 @@ CONTEXT_PKT = "Standard Flow Signal Context Packet"
 VERSION_PKT = "Version Flow Signal Context Packet"
 DATA_PKT    = "Standard Flow Signal Data Packet"
 CMD_PKT     = "Command Packet"
+EXT_CMD_PKT = "Extension Command Packet"
 
 local tsi_codes = {
     [0] = "Not Allowed", -- (Some ICDs call this Not Specified)
@@ -16,6 +17,11 @@ local tsf_codes = {
     [1] = "Sample Count Time",
     [2] = "Real (pico secs) Time",
     [3] = "Free-Running Count Time"
+}
+
+local command_indicator_codes = {
+    [0] = "Control",
+    [4] = "Acknowledge"
 }
 
 -- Common Header fields
@@ -64,6 +70,7 @@ user_type     = ProtoField.uint32("difi.user_type","Type (user-defined)", base.D
 icd_version   = ProtoField.uint32("difi.icd_version","ICD Version", base.DEC, nil, 0x0000003f)
 
 -- Command header fields
+command_indicator = ProtoField.uint8 ("difi.command_indicator", "Control/Acknowledge Indicators", base.HEX, command_indicator_codes)
 cam_field        = ProtoField.uint32("difi.cam_field", "CAM field", base.HEX)
 message_id       = ProtoField.uint32("difi.message_id", "Message ID", base.HEX)
 controllee_id    = ProtoField.uint32("difi.controllee_id", "Controllee ID", base.DEC)
@@ -77,6 +84,17 @@ buffer_overflow  = ProtoField.uint16("difi.buffer_overflow","Buffer Overflow", b
 near_full        = ProtoField.uint16("difi.near_full","near_full", base.DEC, nil, 0x0004)
 near_empty       = ProtoField.uint16("difi.near_empty","near_empty", base.DEC, nil, 0x0002)
 buffer_underflow = ProtoField.uint16("difi.buffer_underflow","Buffer Underflow", base.DEC, nil, 0x0001)
+
+-- DIFI 1.3 Extension Command packet fields
+sink_time_cal_int_timestamp     = ProtoField.uint32("difi.sink_time_cal_integer_timestamp", "Sink Time Calibration Integer-Seconds", base.DEC)
+sink_time_cal_frac_timestamp    = ProtoField.uint64("difi.sink_time_cal_fractional_timestamp", "Sink Time Calibration Fractional-Seconds", base.DEC)
+control_int_timestamp           = ProtoField.uint32("difi.control_integer_timestamp", "Control Packet Integer-Seconds Timestamp", base.DEC)
+control_frac_timestamp          = ProtoField.uint64("difi.control_fractional_timestamp", "Control Packet Fractional-Seconds Timestamp", base.DEC)
+sink_reception_int_timestamp    = ProtoField.uint32("difi.sink_reception_integer_timestamp", "Sink Reception Integer-Seconds Timestamp", base.DEC)
+sink_reception_frac_timestamp   = ProtoField.uint64("difi.sink_reception_fractional_timestamp", "Sink Reception Fractional-Seconds Timestamp", base.DEC)
+capabilities_payload            = ProtoField.bytes ("difi.capabilities_payload", "Sink Capabilities Payload")
+status_code_payload             = ProtoField.bytes ("difi.status_code_payload", "Status Code Payload")
+extension_payload               = ProtoField.bytes ("difi.extension_payload", "Extension Command Payload")
 
 difi_protocol = Proto("DIFI", "DIFI Protocol")
 
@@ -93,8 +111,13 @@ difi_protocol.fields = {
     -- version
     ctxt_cif0, ctxt_cif1, v49spec, year, day, revision, user_type, icd_version,
     -- command
-    cam_field, message_id, controllee_id, controller_id, ctrl_cif0, ctrl_cif1,
-    buffer_size, buffer_reserved, buffer_level, buffer_overflow, near_full, near_empty, buffer_underflow
+    command_indicator, cam_field, message_id, controllee_id, controller_id, ctrl_cif0, ctrl_cif1,
+    buffer_size, buffer_reserved, buffer_level, buffer_overflow, near_full, near_empty, buffer_underflow,
+    -- DIFI 1.3 extension command
+    sink_time_cal_int_timestamp, sink_time_cal_frac_timestamp,
+    control_int_timestamp, control_frac_timestamp,
+    sink_reception_int_timestamp, sink_reception_frac_timestamp,
+    capabilities_payload, status_code_payload, extension_payload
 }
 
 -- Helpers ----------------------------------------------------
@@ -251,6 +274,88 @@ local function control_pkt_dissector(buffer, tree, name)
     subtree:add_packet_field(buffer_underflow,buffer(82, 2), ENC_BIG_ENDIAN)
 end
 
+local function extension_command_pkt_dissector(buffer, tree, name)
+    -- DIFI 1.3 Extension Command packets all include the 7-word prologue plus
+    -- CAM, Message ID, Controllee ID, Controller ID, and CIF0 (12 words total).
+    -- Packet classes 0x0007, 0x0008, and 0x0009 then interpret the remaining
+    -- words differently.
+    if buffer:len() < 48 then return end
+
+    local word0 = buffer(0,4):uint()
+    local word3 = buffer(12,4):uint()
+    local packet_class_int = bit.band(word3, 0x0000ffff)
+    local size_words = bit.band(word0, 0xffff)
+    local size_bytes = size_words * 4
+    local packet_len = buffer:len()
+    if size_words > 0 and size_bytes < packet_len then
+        packet_len = size_bytes
+    end
+
+    local subtree = tree:add(difi_protocol, buffer(0, packet_len), "DIFI Protocol, " .. name)
+
+    difi_common_dissector(buffer, subtree)
+
+    subtree:add(command_indicator, bit.rshift(bit.band(word0, 0x07000000), 24))
+    subtree:add_packet_field(cam_field,     buffer(28, 4), ENC_BIG_ENDIAN)
+    subtree:add_packet_field(message_id,    buffer(32, 4), ENC_BIG_ENDIAN)
+    subtree:add_packet_field(controllee_id, buffer(36, 4), ENC_BIG_ENDIAN)
+    subtree:add_packet_field(controller_id, buffer(40, 4), ENC_BIG_ENDIAN)
+    subtree:add_packet_field(ctrl_cif0,     buffer(44, 4), ENC_BIG_ENDIAN)
+
+    local cif0 = buffer(44, 4):uint()
+    local is_short_form = bit.band(cif0, 0x80000000) ~= 0
+
+    if packet_class_int == 0x0007 then
+        -- Sink Capability Query Control.
+        -- Short form: CIF0 bit 31 set, optional Sink Time Calibration words.
+        -- Long form: CIF0 bit 31 clear, CIF1 follows.
+        if is_short_form then
+            subtree:add("Sink Capability Query Form: Short")
+            if packet_len >= 60 then
+                subtree:add_packet_field(sink_time_cal_int_timestamp,  buffer(48, 4), ENC_BIG_ENDIAN)
+                subtree:add_packet_field(sink_time_cal_frac_timestamp, buffer(52, 8), ENC_BIG_ENDIAN)
+            end
+        else
+            subtree:add("Sink Capability Query Form: Long")
+            if packet_len >= 52 then
+                subtree:add_packet_field(ctrl_cif1, buffer(48, 4), ENC_BIG_ENDIAN)
+            end
+        end
+
+    elseif packet_class_int == 0x0008 then
+        -- Sink Capability Response Acknowledge.
+        -- Short form carries echoed query timestamps and sink reception time.
+        -- Long form carries a variable capabilities payload after CIF1.
+        if is_short_form then
+            subtree:add("Sink Capability Response Form: Short")
+            if packet_len >= 72 then
+                subtree:add_packet_field(control_int_timestamp,         buffer(48, 4), ENC_BIG_ENDIAN)
+                subtree:add_packet_field(control_frac_timestamp,        buffer(52, 8), ENC_BIG_ENDIAN)
+                subtree:add_packet_field(sink_reception_int_timestamp,  buffer(60, 4), ENC_BIG_ENDIAN)
+                subtree:add_packet_field(sink_reception_frac_timestamp, buffer(64, 8), ENC_BIG_ENDIAN)
+            end
+        else
+            subtree:add("Sink Capability Response Form: Long")
+            if packet_len >= 52 then
+                subtree:add_packet_field(ctrl_cif1, buffer(48, 4), ENC_BIG_ENDIAN)
+            end
+            if packet_len > 52 then
+                subtree:add(capabilities_payload, buffer(52, packet_len - 52))
+            end
+        end
+
+    elseif packet_class_int == 0x0009 then
+        -- Status Report Control. CIF0 is all zero per DIFI 1.3; remaining
+        -- words are the status-code payload plus optional quantitative fields.
+        if packet_len > 48 then
+            subtree:add(status_code_payload, buffer(48, packet_len - 48))
+        end
+
+    elseif packet_len > 48 then
+        subtree:add(extension_payload, buffer(48, packet_len - 48))
+    end
+end
+
 -- Heuristic --------------------------------------------------
 
 local function heuristic_checker(buffer, pinfo, tree)
@@ -265,8 +370,14 @@ local function heuristic_checker(buffer, pinfo, tree)
 
     local word0 = buffer(0,4):uint()
     local packet_type_int = bit.rshift(bit.band(word0,0xf0000000), 28)
-    local valid_ptype = (packet_type_int == 4 or packet_type_int == 5 or packet_type_int == 1 or packet_type_int == 6)
+    local valid_ptype = (packet_type_int == 4 or packet_type_int == 5 or packet_type_int == 1 or packet_type_int == 6 or packet_type_int == 7)
     if not valid_ptype then return false end
+
+    if packet_type_int == 7 then
+        local packet_class_int = bit.band(buffer(12,4):uint(), 0x0000ffff)
+        local valid_extension_class = (packet_class_int == 7 or packet_class_int == 8 or packet_class_int == 9)
+        if not valid_extension_class then return false end
+    end
 
     -- Optional: basic size sanity check (packet_size is in 32-bit words)
     local size_words = bit.band(word0, 0xffff)
@@ -302,7 +413,12 @@ function difi_protocol.dissector(buffer, pinfo, tree)
     if packet_type_int == 0x4 then
         if packet_class_int == 1 then name = "Standard Flow Signal Context Packet" end
         if packet_class_int == 3 then name = "Sample Count Context Packet" end
-        context_pkt_dissector(buffer, tree, name)
+        if packet_class_int == 4 then
+            name = "Version Flow Signal Context Packet"
+            version_pkt_dissector(buffer, tree, name)
+        else
+            context_pkt_dissector(buffer, tree, name)
+        end
 
     elseif packet_type_int == 0x5 then
         name = "Version Flow Signal Context Packet"
@@ -317,6 +433,12 @@ function difi_protocol.dissector(buffer, pinfo, tree)
         if packet_class_int == 6 then name = "Real Time Command Packet" end
         if packet_class_int == 5 then name = "Sample Count Command Packet" end
         control_pkt_dissector(buffer, tree, name)
+
+    elseif packet_type_int == 0x7 then
+        if packet_class_int == 7 then name = "Sink Capability Query Control Packet" end
+        if packet_class_int == 8 then name = "Sink Capability Response Acknowledge Packet" end
+        if packet_class_int == 9 then name = "Status Report Control Packet" end
+        extension_command_pkt_dissector(buffer, tree, name)
     end
 
     pinfo.cols.protocol = difi_protocol.name
