@@ -145,11 +145,19 @@ def sink_capability_response_long_table_cif0() -> bytes:
         0x00000002,  # CIF1: buffer-size field present.
     ]
     words += [0x00000000] * (70 - len(words))
+    # Table 4-26 fixed-position payload fields.
+    words[13] = (3 << 16) | 0x0100          # Word 14: IC count + first IC.
+    words[14] = (0x0101 << 16) | 0x0102     # Word 15: second + third IC.
+    words[16] = 0x00000001                  # Word 17: one reference point.
+    words[21] = (1 << 15) | 2               # Word 22: discrete sample-rate/BW list, count=2.
+    words[59] = (0x0123 << 19) | 7          # Word 60: bit-depth indicator + max streams.
+    words[61] = 0x00000000                  # Words 62-63: 64-bit buffer size.
+    words[62] = 0x00100000
     return u32_words(*words)
 
 
 def status_report() -> bytes:
-    words = extension_header(0x0009, 15, command_indicator=0, seq_num=3)
+    words = extension_header(0x0009, 21, command_indicator=0, seq_num=3)
     words[1] = 0x11223344  # Status reports are paired to a stream for 0x01XX != 0x0101.
     words[3] = (0x0100 << 16) | 0x0009
     words += [
@@ -158,9 +166,15 @@ def status_report() -> bytes:
         0x00000000,
         0x00000000,
         0x00000000,  # CIF0 all zeros.
+        0x88000010,  # Status word 1: packet type undefined + packet size + timeout.
+        0x94008018,  # Status word 2: frequency LOL + buffer overflow + context timeout + flags.
+        0x00000000,  # Reserved status payload word.
         0x00000000,
+        0x00001234,  # Reference level limit.
         0x00000000,
-        0x00000000,  # Minimal status payload words.
+        0x00100000,  # Sample rate limit.
+        0x00000000,
+        0x00200000,  # Bandwidth limit.
     ]
     return u32_words(*words)
 
@@ -239,6 +253,42 @@ def main() -> int:
             "difi.ctrl_cif0",
             "-e",
             "difi.v49spec",
+            "-e",
+            "difi.capability_ic_count",
+            "-e",
+            "difi.capability_ic_1",
+            "-e",
+            "difi.capability_ic_2",
+            "-e",
+            "difi.capability_ic_3",
+            "-e",
+            "difi.capability_ref_point_count",
+            "-e",
+            "difi.capability_sample_rate_count",
+            "-e",
+            "difi.capability_max_stream_count",
+            "-e",
+            "difi.capability_buffer_size",
+            "-e",
+            "difi.status_word1",
+            "-e",
+            "difi.status_word2",
+            "-e",
+            "difi.status_packet_type_not_defined",
+            "-e",
+            "difi.status_packet_size_error",
+            "-e",
+            "difi.status_context_timeout",
+            "-e",
+            "difi.status_ref_level_limit_flag",
+            "-e",
+            "difi.status_sr_bw_limit_flag",
+            "-e",
+            "difi.status_ref_level_limit",
+            "-e",
+            "difi.status_sample_rate_limit",
+            "-e",
+            "difi.status_bandwidth_limit",
         ]
         result = subprocess.run(cmd, text=True, capture_output=True)
         if result.returncode != 0:
@@ -253,12 +303,48 @@ def main() -> int:
     command_indicators = {parse_int(row[3]) for row in rows if len(row) > 3}
     cif0_values = {parse_int(row[4]) for row in rows if len(row) > 4}
     v49spec_values = {parse_int(row[5]) for row in rows if len(row) > 5}
+    capability_ic_counts = {parse_int(row[6]) for row in rows if len(row) > 6}
+    capability_ic_1_values = {parse_int(row[7]) for row in rows if len(row) > 7}
+    capability_ic_2_values = {parse_int(row[8]) for row in rows if len(row) > 8}
+    capability_ic_3_values = {parse_int(row[9]) for row in rows if len(row) > 9}
+    capability_ref_point_counts = {parse_int(row[10]) for row in rows if len(row) > 10}
+    capability_sample_rate_counts = {parse_int(row[11]) for row in rows if len(row) > 11}
+    capability_max_stream_counts = {parse_int(row[12]) for row in rows if len(row) > 12}
+    capability_buffer_sizes = {parse_int(row[13]) for row in rows if len(row) > 13}
+    status_word1_values = {parse_int(row[14]) for row in rows if len(row) > 14}
+    status_word2_values = {parse_int(row[15]) for row in rows if len(row) > 15}
+    status_packet_type_bits = {parse_int(row[16]) for row in rows if len(row) > 16}
+    status_packet_size_bits = {parse_int(row[17]) for row in rows if len(row) > 17}
+    status_context_timeout_bits = {parse_int(row[18]) for row in rows if len(row) > 18}
+    status_ref_level_limit_bits = {parse_int(row[19]) for row in rows if len(row) > 19}
+    status_sr_bw_limit_bits = {parse_int(row[20]) for row in rows if len(row) > 20}
+    status_ref_level_limits = {parse_int(row[21]) for row in rows if len(row) > 21}
+    status_sample_rate_limits = {parse_int(row[22]) for row in rows if len(row) > 22}
+    status_bandwidth_limits = {parse_int(row[23]) for row in rows if len(row) > 23}
 
     assert {0x4, 0x7}.issubset(packet_types), packet_types
     assert {0x0004, 0x0007, 0x0008, 0x0009}.issubset(packet_classes), packet_classes
     assert 0x4 in command_indicators, command_indicators
     assert {0x40300004, 0x7FB80002, 0x80000000, 0x00000000}.issubset(cif0_values), cif0_values
     assert 0x00000004 in v49spec_values, v49spec_values
+    assert 3 in capability_ic_counts, capability_ic_counts
+    assert {0x0100}.issubset(capability_ic_1_values), capability_ic_1_values
+    assert {0x0101}.issubset(capability_ic_2_values), capability_ic_2_values
+    assert {0x0102}.issubset(capability_ic_3_values), capability_ic_3_values
+    assert 1 in capability_ref_point_counts, capability_ref_point_counts
+    assert 2 in capability_sample_rate_counts, capability_sample_rate_counts
+    assert 7 in capability_max_stream_counts, capability_max_stream_counts
+    assert 0x00100000 in capability_buffer_sizes, capability_buffer_sizes
+    assert 0x88000010 in status_word1_values, status_word1_values
+    assert 0x94008018 in status_word2_values, status_word2_values
+    assert 1 in status_packet_type_bits, status_packet_type_bits
+    assert 1 in status_packet_size_bits, status_packet_size_bits
+    assert 1 in status_context_timeout_bits, status_context_timeout_bits
+    assert 1 in status_ref_level_limit_bits, status_ref_level_limit_bits
+    assert 1 in status_sr_bw_limit_bits, status_sr_bw_limit_bits
+    assert 0x00001234 in status_ref_level_limits, status_ref_level_limits
+    assert 0x00100000 in status_sample_rate_limits, status_sample_rate_limits
+    assert 0x00200000 in status_bandwidth_limits, status_bandwidth_limits
     print("PASS: DIFI 1.3 version-flow and extension command packets decoded")
     return 0
 

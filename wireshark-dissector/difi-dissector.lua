@@ -96,6 +96,41 @@ capabilities_payload            = ProtoField.bytes ("difi.capabilities_payload",
 status_code_payload             = ProtoField.bytes ("difi.status_code_payload", "Status Code Payload")
 extension_payload               = ProtoField.bytes ("difi.extension_payload", "Extension Command Payload")
 
+-- DIFI 1.3 long-form Sink Capabilities Response fields (Tables 4-26/4-27)
+capability_ic_count             = ProtoField.uint16("difi.capability_ic_count", "Number of Supported Information Classes", base.DEC)
+capability_ic_1                 = ProtoField.uint16("difi.capability_ic_1", "First Supported Information Class", base.HEX)
+capability_ic_2                 = ProtoField.uint16("difi.capability_ic_2", "Second Supported Information Class", base.HEX)
+capability_ic_3                 = ProtoField.uint16("difi.capability_ic_3", "Third Supported Information Class", base.HEX)
+capability_ref_point_count      = ProtoField.uint16("difi.capability_ref_point_count", "Number of Reference Points Supported", base.DEC)
+capability_sample_rate_count    = ProtoField.uint32("difi.capability_sample_rate_count", "Number of Sample Rates/Maximum Bandwidths Supported", base.DEC, nil, 0x00007fff)
+capability_bit_depth_indicator  = ProtoField.uint32("difi.capability_bit_depth_indicator", "Bit-Depth Indicator Field", base.HEX, nil, 0xfff80000)
+capability_max_stream_count     = ProtoField.uint32("difi.capability_max_stream_count", "Maximum Simultaneous Stream Count", base.DEC, nil, 0x0000003f)
+capability_buffer_size          = ProtoField.uint64("difi.capability_buffer_size", "Sink Capability Buffer Size (bytes)", base.DEC)
+
+-- DIFI 1.3 Status Report fields (Table 4-29/Table 4-30)
+status_word1                    = ProtoField.uint32("difi.status_word1", "Status Word 1: Packet-Related Error Bits", base.HEX)
+status_word2                    = ProtoField.uint32("difi.status_word2", "Status Word 2: System Errors and Warnings", base.HEX)
+status_packet_type_not_defined  = ProtoField.uint32("difi.status_packet_type_not_defined", "Selected Packet Type Not Defined", base.DEC, nil, 0x80000000)
+status_packet_size_error        = ProtoField.uint32("difi.status_packet_size_error", "Incorrectly Specified Packet Size", base.DEC, nil, 0x08000000)
+status_timeout_link_termination = ProtoField.uint32("difi.status_timeout_link_termination", "Timeout/Link Termination", base.DEC, nil, 0x00000010)
+status_word1_reserved           = ProtoField.uint32("difi.status_word1_reserved", "Status Word 1 Reserved Bits [3:0]", base.HEX, nil, 0x0000000f)
+status_frequency_lol            = ProtoField.uint32("difi.status_frequency_lol", "Frequency LOL Causing Data Stoppage", base.DEC, nil, 0x80000000)
+status_timebase_lol             = ProtoField.uint32("difi.status_timebase_lol", "Timebase LOL Causing Data Stoppage", base.DEC, nil, 0x40000000)
+status_buffer_overflow          = ProtoField.uint32("difi.status_buffer_overflow", "Buffer Overflow", base.DEC, nil, 0x10000000)
+status_context_timeout          = ProtoField.uint32("difi.status_context_timeout", "Context Error Timeout", base.DEC, nil, 0x04000000)
+status_link_termination         = ProtoField.uint32("difi.status_link_termination", "Link Termination", base.DEC, nil, 0x02000000)
+status_probable_context_drop    = ProtoField.uint32("difi.status_probable_context_drop", "Probable Context Packet Drop", base.DEC, nil, 0x00008000)
+status_probable_data_drop       = ProtoField.uint32("difi.status_probable_data_drop", "Probable Data Packet Drop", base.DEC, nil, 0x00004000)
+status_ref_level_limit_flag     = ProtoField.uint32("difi.status_ref_level_limit_flag", "Reference Level Limit Flag", base.DEC, nil, 0x00000010)
+status_sr_bw_limit_flag         = ProtoField.uint32("difi.status_sr_bw_limit_flag", "Sample Rate and Bandwidth Limits Flag", base.DEC, nil, 0x00000008)
+status_word2_reserved_high      = ProtoField.uint32("difi.status_word2_reserved_high", "Status Word 2 Reserved Bits [24:16]", base.HEX, nil, 0x01ff0000)
+status_word2_reserved_mid       = ProtoField.uint32("difi.status_word2_reserved_mid", "Status Word 2 Reserved Bits [10:5]", base.HEX, nil, 0x000007e0)
+status_word2_reserved_low       = ProtoField.uint32("difi.status_word2_reserved_low", "Status Word 2 Reserved Bits [2:0]", base.HEX, nil, 0x00000007)
+status_reserved_word            = ProtoField.uint32("difi.status_reserved_word", "Status Payload Reserved Word", base.HEX)
+status_ref_level_limit          = ProtoField.uint64("difi.status_ref_level_limit", "Reference Level Limit", base.HEX)
+status_sample_rate_limit        = ProtoField.uint64("difi.status_sample_rate_limit", "Sample Rate Limit", base.HEX)
+status_bandwidth_limit          = ProtoField.uint64("difi.status_bandwidth_limit", "Bandwidth Limit", base.HEX)
+
 difi_protocol = Proto("DIFI", "DIFI Protocol")
 
 -- Register all fields
@@ -117,7 +152,17 @@ difi_protocol.fields = {
     sink_time_cal_int_timestamp, sink_time_cal_frac_timestamp,
     control_int_timestamp, control_frac_timestamp,
     sink_reception_int_timestamp, sink_reception_frac_timestamp,
-    capabilities_payload, status_code_payload, extension_payload
+    capabilities_payload, status_code_payload, extension_payload,
+    capability_ic_count, capability_ic_1, capability_ic_2, capability_ic_3,
+    capability_ref_point_count, capability_sample_rate_count,
+    capability_bit_depth_indicator, capability_max_stream_count, capability_buffer_size,
+    status_word1, status_word2, status_packet_type_not_defined, status_packet_size_error,
+    status_timeout_link_termination, status_word1_reserved, status_frequency_lol,
+    status_timebase_lol, status_buffer_overflow, status_context_timeout,
+    status_link_termination, status_probable_context_drop, status_probable_data_drop,
+    status_ref_level_limit_flag, status_sr_bw_limit_flag, status_word2_reserved_high,
+    status_word2_reserved_mid, status_word2_reserved_low, status_reserved_word,
+    status_ref_level_limit, status_sample_rate_limit, status_bandwidth_limit
 }
 
 -- Helpers ----------------------------------------------------
@@ -274,6 +319,71 @@ local function control_pkt_dissector(buffer, tree, name)
     subtree:add_packet_field(buffer_underflow,buffer(82, 2), ENC_BIG_ENDIAN)
 end
 
+local function add_sink_capability_long_fields(buffer, subtree, packet_len)
+    -- DIFI 1.3 Tables 4-26/4-27 define the long-form response payload as a
+    -- table of supported information classes, reference points, rate/bandwidth
+    -- capabilities, and trailing sink limits. Decode the stable table fields
+    -- with fixed word positions; keep the raw payload as a fallback for variable
+    -- or implementation-specific list lengths.
+    if packet_len >= 56 then
+        subtree:add_packet_field(capability_ic_count, buffer(52, 2), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(capability_ic_1,     buffer(54, 2), ENC_BIG_ENDIAN)
+    end
+    if packet_len >= 60 then
+        subtree:add_packet_field(capability_ic_2,     buffer(56, 2), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(capability_ic_3,     buffer(58, 2), ENC_BIG_ENDIAN)
+    end
+    if packet_len >= 68 then
+        subtree:add_packet_field(capability_ref_point_count, buffer(66, 2), ENC_BIG_ENDIAN)
+    end
+    if packet_len >= 88 then
+        subtree:add_packet_field(capability_sample_rate_count, buffer(84, 4), ENC_BIG_ENDIAN)
+    end
+    if packet_len >= 240 then
+        subtree:add_packet_field(capability_bit_depth_indicator, buffer(236, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(capability_max_stream_count,    buffer(236, 4), ENC_BIG_ENDIAN)
+    end
+    if packet_len >= 252 then
+        subtree:add_packet_field(capability_buffer_size, buffer(244, 8), ENC_BIG_ENDIAN)
+    end
+end
+
+local function add_status_report_fields(buffer, subtree, packet_len)
+    -- DIFI 1.3 Table 4-29/4-30: CIF0 is followed by Status Word 1,
+    -- Status Word 2, a reserved word, and optional quantitative fields for
+    -- 17-word and 21-word status reports.
+    if packet_len >= 56 then
+        subtree:add_packet_field(status_word1,                   buffer(48, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_packet_type_not_defined, buffer(48, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_packet_size_error,       buffer(48, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_timeout_link_termination,buffer(48, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_word1_reserved,          buffer(48, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_word2,                   buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_frequency_lol,           buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_timebase_lol,            buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_buffer_overflow,         buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_context_timeout,         buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_link_termination,        buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_probable_context_drop,   buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_probable_data_drop,      buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_ref_level_limit_flag,    buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_sr_bw_limit_flag,        buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_word2_reserved_high,     buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_word2_reserved_mid,      buffer(52, 4), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_word2_reserved_low,      buffer(52, 4), ENC_BIG_ENDIAN)
+    end
+    if packet_len >= 60 then
+        subtree:add_packet_field(status_reserved_word, buffer(56, 4), ENC_BIG_ENDIAN)
+    end
+    if packet_len >= 68 then
+        subtree:add_packet_field(status_ref_level_limit, buffer(60, 8), ENC_BIG_ENDIAN)
+    end
+    if packet_len >= 84 then
+        subtree:add_packet_field(status_sample_rate_limit, buffer(68, 8), ENC_BIG_ENDIAN)
+        subtree:add_packet_field(status_bandwidth_limit,   buffer(76, 8), ENC_BIG_ENDIAN)
+    end
+end
+
 local function extension_command_pkt_dissector(buffer, tree, name)
     -- DIFI 1.3 Extension Command packets all include the 7-word prologue plus
     -- CAM, Message ID, Controllee ID, Controller ID, and CIF0 (12 words total).
@@ -341,6 +451,7 @@ local function extension_command_pkt_dissector(buffer, tree, name)
             end
             if packet_len > 52 then
                 subtree:add(capabilities_payload, buffer(52, packet_len - 52))
+                add_sink_capability_long_fields(buffer, subtree, packet_len)
             end
         end
 
@@ -349,6 +460,7 @@ local function extension_command_pkt_dissector(buffer, tree, name)
         -- words are the status-code payload plus optional quantitative fields.
         if packet_len > 48 then
             subtree:add(status_code_payload, buffer(48, packet_len - 48))
+            add_status_report_fields(buffer, subtree, packet_len)
         end
 
     elseif packet_len > 48 then
