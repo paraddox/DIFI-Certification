@@ -131,6 +131,23 @@ def sink_capability_response_short() -> bytes:
     return u32_words(*words)
 
 
+def sink_capability_response_long_table_cif0() -> bytes:
+    # DIFI 1.3 PDF Tables 4-26/4-27 show long-form response CIF0 as
+    # 0x7FB80002, while the surrounding prose uses the sparse CIF0 value
+    # 0x40300004. The dissector should decode either value.
+    words = extension_header(0x0008, 70, command_indicator=4, seq_num=5)
+    words += [
+        0xA1100400,  # CAM: acknowledge, execute, validation ack, executed in time.
+        0x00000001,  # Message ID echoed from query.
+        0x00000000,
+        0x00000000,
+        0x7FB80002,  # CIF0 long form from DIFI 1.3 tables.
+        0x00000002,  # CIF1: buffer-size field present.
+    ]
+    words += [0x00000000] * (70 - len(words))
+    return u32_words(*words)
+
+
 def status_report() -> bytes:
     words = extension_header(0x0009, 15, command_indicator=0, seq_num=3)
     words[1] = 0x11223344  # Status reports are paired to a stream for 0x01XX != 0x0101.
@@ -191,6 +208,7 @@ def main() -> int:
                 version_flow_context(),
                 sink_capability_query_long(),
                 sink_capability_response_short(),
+                sink_capability_response_long_table_cif0(),
                 status_report(),
             ],
         )
@@ -239,7 +257,7 @@ def main() -> int:
     assert {0x4, 0x7}.issubset(packet_types), packet_types
     assert {0x0004, 0x0007, 0x0008, 0x0009}.issubset(packet_classes), packet_classes
     assert 0x4 in command_indicators, command_indicators
-    assert {0x40300004, 0x80000000, 0x00000000}.issubset(cif0_values), cif0_values
+    assert {0x40300004, 0x7FB80002, 0x80000000, 0x00000000}.issubset(cif0_values), cif0_values
     assert 0x00000004 in v49spec_values, v49spec_values
     print("PASS: DIFI 1.3 version-flow and extension command packets decoded")
     return 0
